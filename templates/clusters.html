@@ -14,7 +14,7 @@
         var map = new google.maps.Map(document.getElementById('map-canvas'),
             mapOptions);
 
-        for (var i = 0; i < Math.min(100, data.clusters.length); i++) {
+        for (var i = 0; i < Math.min(1000, data.clusters.length); i++) {
             var marker = new google.maps.Marker({
                 position: new google.maps.LatLng(data.clusters[i].center.lat, data.clusters[i].center.lng),
                 map: map

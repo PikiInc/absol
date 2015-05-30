@@ -52,20 +52,20 @@ class MediaCluster(object):
             for m in self.media_list:
                 dist_avg += self.distance(media, m)
             dist_avg /= self.media_count
-            return dist_avg < 0.001
+            return dist_avg < 0.01
         elif distance_mode == DistanceMode.PAIRWISE_ALL:
             # PAIRWISE_ALL means every distance of media with existing media in cluster
             # should be less than 0.001.
             for m in self.media_list:
                 dist = self.distance(media, m)
-                if dist >= 0.001:
+                if dist >= 0.01:
                     return False
             return True
         else:
             # CENTER is the default method.
             # CENTER means calculate the distance between media and cluster center.
             dist = self.distance(media, self.cluster_center)
-            return dist < 0.001
+            return dist < 0.01
 
     def add_media(self, media):
         self.media_list.append(media)
