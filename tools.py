@@ -5,9 +5,12 @@ from cluster import DistanceMode, MediaClusterBuilder
 from database_client import mongo_client
 from flask import Flask
 from flask import render_template
+from ml_service_client import MLServiceClient
 
 
-_CLUSTER_INFO_TEMPLATE = '<div class="clusterInfo"><a href="{0}" target="_blank">{1} media</a><br /><p>{2}</p></div>'
+_CLUSTER_INFO_TEMPLATE = '<div class="clusterInfo"><a href="{0}" target="_blank">{1} media</a><br /><p>{2}</p>{3}</div>'
+_ML_CLUSTER_INFO_TEMPLATE = '<div class="mlClusterInfo">{0} ML clusters<br />{1}</div>'
+_ML_CLUSTER_CONTENT_TEMPLATE = 'Cluster: <p>{0}</p>'
 _MEDIA_IMAGE_TEMPLATE = '<img src="{0}" />'
 
 app = Flask(__name__)
@@ -39,10 +42,23 @@ def verify_clusters_tool():
         clusters = []
         for i in range(len(media_clusters)):
             media_cluster = media_clusters[i]
+            # Get ML clusters.
+            ml_clusters = MLServiceClient().get_ml_cluster(media_cluster)
             media_content = ''
             for media in media_cluster.media_list:
                 media_content += _MEDIA_IMAGE_TEMPLATE.format(media.get('image_url').get('thumbnail_url'))
-            cluster_info = _CLUSTER_INFO_TEMPLATE.format('/cluster/{0}'.format(i), media_cluster.media_count, media_content)
+            # Generate ML cluster info.
+            ml_cluster_info = ''
+            if ml_clusters and len(ml_clusters) > 0:
+                ml_cluster_content = ''
+                for ml_cluster in ml_clusters:
+                    ml_media_content = ''
+                    for media in ml_cluster:
+                        ml_media_content += _MEDIA_IMAGE_TEMPLATE.format(media.get('image_url').get('thumbnail_url'))
+                    ml_cluster_content += _ML_CLUSTER_CONTENT_TEMPLATE.format(ml_media_content)
+                ml_cluster_info = _ML_CLUSTER_INFO_TEMPLATE.format(len(ml_clusters), ml_cluster_content)
+            cluster_info = _CLUSTER_INFO_TEMPLATE.format('/cluster/{0}'.format(i), media_cluster.media_count,
+                                                         media_content, ml_cluster_info)
             clusters.append({
                 'media_count': media_cluster.media_count,
                 'url': '/cluster/{0}'.format(i),

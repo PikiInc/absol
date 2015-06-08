@@ -16,7 +16,7 @@
 
         for (var i = 0; i < Math.min(1000, data.clusters.length); i++) {
             var marker = new google.maps.Marker({
-                position: new google.maps.LatLng(data.clusters[i].center.lat, data.clusters[i].center.lng),
+                position: new google.maps.LatLng(data.clusters[i].center.latitude, data.clusters[i].center.longitude),
                 map: map
             });
             var contentString = data.clusters[i].cluster_info;

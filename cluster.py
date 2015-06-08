@@ -1,6 +1,6 @@
 import time
 from enum import Enum
-from database_client import mongo_client
+from database_client import media_mongo_client
 from math import sqrt
 
 
@@ -14,17 +14,17 @@ class MediaCluster(object):
 
     def __init__(self, media):
         self.media_list = [media]
-        self.cluster_center = {'lat': media.get('lat'), 'lng': media.get('lng')}
+        self.cluster_center = {'latitude': media.get('latitude'), 'longitude': media.get('longitude')}
         self.media_count = 1
 
-    def dominant_locaction_media(self):
+    def dominant_location_media(self):
         # Calculate the percentage of media with same location.
         dominant_location = None
         count = 0
         for media in self.media_list:
-            if dominant_location != {'lat': media.get('lat'), 'lng': media.get('lng')}:
+            if dominant_location != {'latitude': media.get('latitude'), 'longitude': media.get('longitude')}:
                 if count == 0:
-                    dominant_location = {'lat': media.get('lat'), 'lng': media.get('lng')}
+                    dominant_location = {'latitude': media.get('latitude'), 'longitude': media.get('longitude')}
                     count = 1
                 else:
                     count -= 1
@@ -32,7 +32,7 @@ class MediaCluster(object):
                 count += 1
         count = 0
         for media in self.media_list:
-            if dominant_location == {'lat': media.get('lat'), 'lng': media.get('lng')}:
+            if dominant_location == {'latitude': media.get('latitude'), 'longitude': media.get('longitude')}:
                 count += 1
         return float(count) / self.media_count
 
@@ -40,8 +40,8 @@ class MediaCluster(object):
     @staticmethod
     def distance(m1, m2):
         dist = sqrt(
-            (m1.get('lat') - m2.get('lat'))**2 +
-            (m1.get('lng') - m2.get('lng'))**2)
+            (m1.get('latitude') - m2.get('latitude'))**2 +
+            (m1.get('longitude') - m2.get('longitude'))**2)
         return dist
 
     def should_contain(self, media, distance_mode):
@@ -71,8 +71,8 @@ class MediaCluster(object):
         self.media_list.append(media)
         self.media_count += 1
         self.cluster_center = {
-            'lat': sum(m.get('lat') for m in self.media_list) / self.media_count,
-            'lng': sum(m.get('lng') for m in self.media_list) / self.media_count
+            'latitude': sum(m.get('latitude') for m in self.media_list) / self.media_count,
+            'longitude': sum(m.get('longitude') for m in self.media_list) / self.media_count
         }
 
     def get_radius(self):
@@ -96,21 +96,22 @@ class MediaClusterBuilder(object):
 
     def track_media(self, media):
         # Construct a meta media dict, which is a single node.
-        lat = media.get('latitude')
-        lng = media.get('longitude')
-        timestamp = media.get('created_time')
+        latitude = media.get('latitude')
+        longitude = media.get('longitude')
+        created_time = media.get('created_time')
         source_url = media.get('source_url')
-        image_url = media.get('image_url')
-        caption = media.get('caption')
-        if lat and lng and timestamp and source_url:
-            meta_media = {
-                'lat': lat,
-                'lng': lng,
-                'timestamp': timestamp,
-                'source_url': source_url,
-                'image_url': image_url,
-                'caption': caption
-            }
+        # image_url = media.get('image_url')
+        # caption = media.get('caption')
+        if latitude and longitude and created_time and source_url:
+            # meta_media = {
+            #    'lat': lat,
+            #    'lng': lng,
+            #    'timestamp': timestamp,
+            #    'source_url': source_url,
+            #    'image_url': image_url,
+            #    'caption': caption
+            # }
+            meta_media = media
 
             # Check if we want to add it to one of the existing clusters.
             media_added = False
@@ -134,7 +135,7 @@ class MediaClusterBuilder(object):
     def get_clean_sorted_clusters(self):
         self.clusters.sort(key=lambda cluster: cluster.media_count, reverse=True)
         for i in range(min(3, len(self.clusters))):
-            if self.clusters[i].dominant_locaction_media() > 0.85:
+            if self.clusters[i].dominant_location_media() > 0.85:
                 self.clusters.remove(self.clusters[i])
         return self.clusters
 
@@ -144,7 +145,7 @@ def start():
     # Get all media of last 24 hours.
     now_timestamp_s = long(time.time())
     one_day_ago_timestamp_s = now_timestamp_s - 60 * 60 * 24
-    media_results = mongo_client.search_media_by_time(one_day_ago_timestamp_s, now_timestamp_s)
+    media_results = media_mongo_client.search_media_by_time(one_day_ago_timestamp_s, now_timestamp_s)
     for media in media_results:
         media_cluster_builder.track_media(media)
     media_clusters = media_cluster_builder.get_clusters()
