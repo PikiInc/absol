@@ -34,7 +34,10 @@ SF_CRAWL_PARAMS = {
     'end_lat': 37.687768,
     'end_lng': -122.528842,
     'distance': 1000,
-    'step_degree': -0.008
+    'step_degree': -0.008,
+    'redis_start_time_key': 'instagram_start_time',
+    'redis_end_time_key': 'instagram_end_time',
+    'crawl_log': 'crawl_instagram.log'
 }
 
 TWITTER_SF_CRAWL_PARAMS = {
@@ -43,7 +46,10 @@ TWITTER_SF_CRAWL_PARAMS = {
     'end_lat': 37.687768,
     'end_lng': -122.528842,
     'distance': '2km',
-    'step_degree': -0.016
+    'step_degree': -0.016,
+    'redis_start_time_key': 'twitter_start_time',
+    'redis_end_time_key': 'twitter_end_time',
+    'crawl_log': 'crawl_twitter.log'
 }
 
 # Redis client
@@ -59,15 +65,17 @@ class Crawler(object):
         raise NotImplementedError('Please implement this function.')
 
     def crawl(self):
-        start_time = datetime.datetime.strptime(redis_client.get('start_time'), '%Y-%m-%d %H:%M:%S')
-        end_time = datetime.datetime.strptime(redis_client.get('end_time'), '%Y-%m-%d %H:%M:%S')
+        redis_start_time_key = self.crawl_params['redis_start_time_key']
+        redis_end_time_key = self.crawl_params['redis_end_time_key']
+        start_time = datetime.datetime.strptime(redis_client.get(redis_start_time_key), '%Y-%m-%d %H:%M:%S')
+        end_time = datetime.datetime.strptime(redis_client.get(redis_end_time_key), '%Y-%m-%d %H:%M:%S')
         self.crawl_by_time(start_time, end_time)
 
         # Set next crawl time range.
         next_start_time = start_time + datetime.timedelta(minutes=15)
         next_end_time = end_time + datetime.timedelta(minutes=15)
-        redis_client.set('start_time', str(next_start_time))
-        redis_client.set('end_time', str(next_end_time))
+        redis_client.set(redis_start_time_key, str(next_start_time))
+        redis_client.set(redis_end_time_key, str(next_end_time))
         logging.info('Set next crawl time range to [{0} - {1}]'.format(str(next_start_time), str(next_end_time)))
 
     def one_time_crawl(self, start_time_str, end_time_str):
@@ -77,6 +85,15 @@ class Crawler(object):
         start_time = datetime.datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
         end_time = datetime.datetime.strptime(end_time_str, '%Y-%m-%d %H:%M:%S')
         self.crawl_by_time(start_time, end_time)
+
+    def get_redis_start_time_key(self):
+        return self.crawl_params['redis_start_time_key']
+
+    def get_redis_end_time_key(self):
+        return self.crawl_params['redis_end_time_key']
+
+    def get_crawl_log(self):
+        return self.crawl_params['crawl_log']
 
 
 class InstagramCrawler(Crawler):
@@ -327,12 +344,13 @@ class CrawlScheduler(object):
 
     def start_scheduler(self, should_continue=False):
         # Config logging and alarm.
-        logging.basicConfig(filename='crawler.log', level=logging.DEBUG)
+        logging.basicConfig(filename=self.crawler.get_crawl_log(), level=logging.DEBUG)
 
         scheduler_start_time = self.get_nearest_start_time()
-        redis_client.set('end_time', str(scheduler_start_time))
+        redis_client.set(self.crawler.get_redis_end_time_key(), str(scheduler_start_time))
         if not should_continue:
-            redis_client.set('start_time', str(scheduler_start_time - datetime.timedelta(minutes=14, seconds=59)))
+            redis_client.set(self.crawler.get_redis_start_time_key(),
+                             str(scheduler_start_time - datetime.timedelta(minutes=14, seconds=59)))
         self.scheduler.add_job(self.start, 'interval', start_date=scheduler_start_time, minutes=15, misfire_grace_time=600)
         self.scheduler.start()
 
